@@ -1,9 +1,9 @@
-const Booking = require('../models/Booking');
+const { supabase } = require('../config/supabaseClient');
 
 // Створити нове бронювання (доступне для всіх)
 exports.createBooking = async (req, res) => {
   try {
-    const { name, phone, date, time, guests, email } = req.body;
+    const { name, phone, date, time, guests, email, userId } = req.body;
 
     console.log('📋 Створення бронювання:', { name, phone, date, time, guests, email });
 
@@ -34,22 +34,36 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // Створення бронювання зі статусом "confirmed" одразу
+    // Підготовка даних для Supabase
     const bookingData = {
-      userName: name,
-      userPhone: phone,
-      date: bookingDate,
-      time,
+      user_name: name,
+      user_phone: phone,
+      date: bookingDate.toISOString().split('T')[0], // Тільки дата YYYY-MM-DD
+      time: time,
       guests: guestsNum,
-      status: 'confirmed', // Одразу підтверджуємо
-      userId: req.user?.id || null
+      status: 'confirmed',
+      user_id: userId || null,
+      user_email: email || null
     };
 
-    if (email) bookingData.userEmail = email;
+    console.log('💾 Збереження в Supabase:', bookingData);
 
-    const booking = await Booking.create(bookingData);
+    // Вставка в Supabase
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert([bookingData])
+      .select();
 
-    console.log(`✅ Бронювання створено: ${booking._id}`);
+    if (error) {
+      console.error('❌ Помилка Supabase:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Помилка при створенні бронювання'
+      });
+    }
+
+    const booking = data[0];
+    console.log(`✅ Бронювання створено: ${booking.id}`);
 
     res.status(201).json({
       success: true,
@@ -58,14 +72,6 @@ exports.createBooking = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Помилка при створенні бронювання:', error);
-    
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        error: messages.join(', ')
-      });
-    }
     
     res.status(400).json({
       success: false,
@@ -88,14 +94,26 @@ exports.getUserBookings = async (req, res) => {
 
     console.log(`👤 Отримання бронювань для користувача: ${userId}`);
 
-    const bookings = await Booking.find({ userId })
-      .sort({ date: -1, time: -1 });
+    const { data: bookings, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+      .order('time', { ascending: false });
 
-    console.log(`✅ Знайдено ${bookings.length} бронювань для користувача ${userId}`);
+    if (error) {
+      console.error('❌ Помилка Supabase:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Помилка при отриманні бронювань'
+      });
+    }
+
+    console.log(`✅ Знайдено ${bookings?.length || 0} бронювань для користувача ${userId}`);
 
     res.json({
       success: true,
-      data: bookings
+      data: bookings || []
     });
   } catch (error) {
     console.error('❌ Помилка при отриманні бронювань користувача:', error);
@@ -120,15 +138,27 @@ exports.getUserBookingsByEmail = async (req, res) => {
       });
     }
     
-    // Шукаємо бронювання по email
-    const bookings = await Booking.find({ userEmail: email })
-      .sort({ date: -1, time: -1 });
+    // Шукаємо бронювання по email в Supabase
+    const { data: bookings, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('user_email', email)
+      .order('date', { ascending: false })
+      .order('time', { ascending: false });
     
-    console.log(`✅ Знайдено бронювань для ${email}: ${bookings.length}`);
+    if (error) {
+      console.error('❌ Помилка Supabase:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Помилка при отриманні бронювань'
+      });
+    }
+    
+    console.log(`✅ Знайдено бронювань для ${email}: ${bookings?.length || 0}`);
     
     res.json({
       success: true,
-      data: bookings
+      data: bookings || []
     });
   } catch (error) {
     console.error('❌ Помилка при отриманні бронювань за email:', error);
@@ -154,9 +184,14 @@ exports.cancelBooking = async (req, res) => {
       });
     }
 
-    const booking = await Booking.findById(id);
-    
-    if (!booking) {
+    // Отримуємо бронювання з Supabase
+    const { data: booking, error: fetchError } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !booking) {
       return res.status(404).json({
         success: false,
         error: 'Бронювання не знайдено'
@@ -165,25 +200,35 @@ exports.cancelBooking = async (req, res) => {
 
     // Якщо користувач авторизований, перевіряємо userId
     if (userId) {
-      if (booking.userId && booking.userId.toString() !== userId) {
+      if (booking.user_id && booking.user_id !== userId) {
         return res.status(403).json({
           success: false,
           error: 'Недостатньо прав для скасування цього бронювання'
         });
       }
     }
-    // Якщо не авторизований, можна скасувати тільки по email
-    // (У реальному додатку тут має бути перевірка через email confirmation)
 
-    // Змінюємо статус на "cancelled"
-    booking.status = 'cancelled';
-    await booking.save();
+    // Оновлюємо статус на "cancelled" в Supabase
+    const { data: updatedBooking, error: updateError } = await supabase
+      .from('bookings')
+      .update({ status: 'cancelled' })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('❌ Помилка оновлення:', updateError);
+      return res.status(500).json({
+        success: false,
+        error: 'Помилка при скасуванні бронювання'
+      });
+    }
 
     console.log(`✅ Бронювання ${id} скасовано`);
 
     res.json({
       success: true,
-      data: booking,
+      data: updatedBooking,
       message: 'Бронювання успішно скасовано'
     });
   } catch (error) {
@@ -217,17 +262,23 @@ exports.updateBookingStatus = async (req, res) => {
       });
     }
 
-    const booking = await Booking.findById(id);
-    
-    if (!booking) {
+    // Оновлення в Supabase
+    const { data: booking, error } = await supabase
+      .from('bookings')
+      .update({ 
+        status: status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error || !booking) {
       return res.status(404).json({
         success: false,
-        error: 'Бронювання не знайдено'
+        error: 'Бронювання не знайдено або помилка оновлення'
       });
     }
-
-    booking.status = status;
-    await booking.save();
 
     console.log(`✅ Адмін: статус бронювання ${id} змінено на: ${status}`);
 
@@ -258,16 +309,18 @@ exports.deleteBooking = async (req, res) => {
       });
     }
 
-    const booking = await Booking.findById(id);
-    
-    if (!booking) {
+    // Видалення з Supabase
+    const { error } = await supabase
+      .from('bookings')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
       return res.status(404).json({
         success: false,
-        error: 'Бронювання не знайдено'
+        error: 'Бронювання не знайдено або помилка видалення'
       });
     }
-
-    await Booking.findByIdAndDelete(id);
 
     console.log(`✅ Адмін: бронювання ${id} видалено`);
 
@@ -295,15 +348,26 @@ exports.getAllBookings = async (req, res) => {
       });
     }
 
-    const bookings = await Booking.find()
-      .sort({ date: -1, time: -1 });
+    const { data: bookings, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .order('date', { ascending: false })
+      .order('time', { ascending: false });
 
-    console.log(`📊 Адмін: отримано ${bookings.length} бронювань`);
+    if (error) {
+      console.error('❌ Помилка Supabase:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Помилка при отриманні бронювань'
+      });
+    }
+
+    console.log(`📊 Адмін: отримано ${bookings?.length || 0} бронювань`);
 
     res.json({
       success: true,
-      count: bookings.length,
-      data: bookings
+      count: bookings?.length || 0,
+      data: bookings || []
     });
   } catch (error) {
     console.error('❌ Помилка при отриманні всіх бронювань:', error);
@@ -328,16 +392,27 @@ exports.getRecentBookings = async (req, res) => {
 
     console.log(`🕐 Отримання останніх бронювань для: ${userId}`);
 
-    // Останні 3 бронювання
-    const bookings = await Booking.find({ userId })
-      .sort({ createdAt: -1 })
+    // Останні 3 бронювання з Supabase
+    const { data: bookings, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
       .limit(3);
 
-    console.log(`✅ Останні бронювання для ${userId}: ${bookings.length}`);
+    if (error) {
+      console.error('❌ Помилка Supabase:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Помилка при отриманні бронювань'
+      });
+    }
+
+    console.log(`✅ Останні бронювання для ${userId}: ${bookings?.length || 0}`);
 
     res.json({
       success: true,
-      data: bookings
+      data: bookings || []
     });
   } catch (error) {
     console.error('❌ Помилка при отриманні останніх бронювань:', error);

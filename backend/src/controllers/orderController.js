@@ -1,4 +1,4 @@
-const Order = require('../models/Order');
+const { supabase } = require('../config/supabaseClient');
 
 // Створити нове замовлення
 exports.createOrder = async (req, res) => {
@@ -41,77 +41,51 @@ exports.createOrder = async (req, res) => {
     console.log('✅ [SERVER] Валідація пройдена');
 
     // Генеруємо номер замовлення
-    console.log('🔢 [SERVER] Генерація номера замовлення...');
-    let orderNumber;
-    try {
-      orderNumber = await Order.generateOrderNumber();
-      console.log(`✅ [SERVER] Згенеровано номер: ${orderNumber}`);
-    } catch (generateError) {
-      console.error('❌ [SERVER] Помилка генерації номера:', generateError);
-      // Якщо генерація не вдалася, створюємо простий номер
-      orderNumber = `ORD${Date.now().toString().slice(-8)}`;
-      console.log(`🔄 [SERVER] Використано резервний номер: ${orderNumber}`);
-    }
+    const orderNumber = `ORD${Date.now().toString().slice(-8)}`;
+    console.log(`✅ [SERVER] Згенеровано номер: ${orderNumber}`);
 
     // Розраховуємо загальну суму
     const finalAmount = totalAmount + deliveryFee;
     console.log(`💰 [SERVER] Фінальна сума: ${finalAmount}`);
 
-    // Створюємо замовлення
+    // Підготуємо дані для Supabase
     const orderData = {
-      orderNumber,
-      customerName,
-      customerPhone,
-      customerEmail: customerEmail || undefined,
-      deliveryAddress,
-      deliveryTime: deliveryTime || undefined,
-      deliveryNotes: deliveryNotes || undefined,
-      paymentMethod,
-      items,
-      totalAmount,
-      deliveryFee,
-      finalAmount,
+      order_number: orderNumber,
+      customer_name: customerName,
+      customer_phone: customerPhone,
+      customer_email: customerEmail || null,
+      delivery_address: deliveryAddress,
+      delivery_time: deliveryTime || null,
+      delivery_notes: deliveryNotes || null,
+      payment_method: paymentMethod || 'cash',
+      payment_status: paymentMethod === 'cash' ? 'pending' : 'paid',
       status: 'pending',
-      paymentStatus: paymentMethod === 'cash' ? 'pending' : 'paid',
-      customerId: customerId || undefined
+      total_amount: totalAmount,
+      delivery_fee: deliveryFee,
+      final_amount: finalAmount,
+      items: items || [],
+      customer_id: customerId || null
     };
 
-    console.log('💾 [SERVER] Збереження в базу даних...');
+    console.log('💾 [SERVER] Збереження в Supabase...');
     console.log('💾 Дані для збереження:', orderData);
     
-    let order;
-    try {
-      order = await Order.create(orderData);
-      console.log(`✅ [SERVER] Замовлення збережено в БД: ${orderNumber}`);
-    } catch (dbError) {
-      console.error('❌ [SERVER] Помилка збереження в БД:', dbError);
-      console.error('❌ [SERVER] Деталі помилки:', dbError.message);
-      console.error('❌ [SERVER] Код помилки:', dbError.code);
-      console.error('❌ [SERVER] Стек помилки:', dbError.stack);
-      
-      if (dbError.code === 11000) {
-        // Дублікат номера замовлення
-        console.log('🔄 [SERVER] Дублікат номера, генеруємо новий...');
-        orderData.orderNumber = `ORD${Date.now().toString().slice(-8)}R`;
-        try {
-          order = await Order.create(orderData);
-          console.log(`✅ [SERVER] Замовлення збережено з новим номером: ${orderData.orderNumber}`);
-        } catch (retryError) {
-          console.error('❌ [SERVER] Помилка при повторній спробі:', retryError);
-          return res.status(500).json({
-            success: false,
-            error: 'Помилка при створенні замовлення'
-          });
-        }
-      } else {
-        return res.status(500).json({
-          success: false,
-          error: 'Помилка бази даних',
-          details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
-        });
-      }
+    // Вставляємо в Supabase
+    const { data, error } = await supabase
+      .from('orders')
+      .insert([orderData])
+      .select();
+
+    if (error) {
+      console.error('❌ [SERVER] Помилка збереження в Supabase:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Помилка при створенні замовлення',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
 
+    const order = data[0];
     console.log(`🎉 [SERVER] Замовлення успішно створено: ${orderNumber}`);
     console.log('📤 [SERVER] Відправляємо відповідь клієнту...');
 
@@ -142,13 +116,13 @@ exports.getUserOrders = async (req, res) => {
     
     console.log('👤 Отримання замовлень для:', { userId, email });
 
-    let query = {};
+    let query = supabase.from('orders').select('*');
     
     // Шукаємо за userId або email
     if (userId) {
-      query.customerId = userId;
+      query = query.eq('customer_id', userId);
     } else if (email) {
-      query.customerEmail = email;
+      query = query.eq('customer_email', email);
     } else {
       return res.status(400).json({
         success: false,
@@ -156,14 +130,24 @@ exports.getUserOrders = async (req, res) => {
       });
     }
 
-    const orders = await Order.find(query)
-      .sort({ createdAt: -1 });
+    // Сортуємо за датою створення
+    query = query.order('created_at', { ascending: false });
 
-    console.log(`✅ Знайдено ${orders.length} замовлень`);
+    const { data: orders, error } = await query;
+
+    if (error) {
+      console.error('❌ Помилка Supabase:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Помилка бази даних'
+      });
+    }
+
+    console.log(`✅ Знайдено ${orders?.length || 0} замовлень`);
 
     res.json({
       success: true,
-      data: orders
+      data: orders || []
     });
   } catch (error) {
     console.error('❌ Помилка при отриманні замовлень:', error);
@@ -179,14 +163,14 @@ exports.getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const order = await Order.findOne({ 
-      $or: [
-        { _id: id },
-        { orderNumber: id }
-      ]
-    });
+    // Шукаємо за ID або номером замовлення
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('*')
+      .or(`id.eq.${id},order_number.eq.${id}`)
+      .single();
 
-    if (!order) {
+    if (error || !order) {
       return res.status(404).json({
         success: false,
         error: 'Замовлення не знайдено'
@@ -220,20 +204,25 @@ exports.updateOrderStatus = async (req, res) => {
       });
     }
 
-    const order = await Order.findById(id);
-    
-    if (!order) {
+    // Оновлюємо в Supabase
+    const { data: order, error } = await supabase
+      .from('orders')
+      .update({ 
+        status: status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error || !order) {
       return res.status(404).json({
         success: false,
-        error: 'Замовлення не знайдено'
+        error: 'Замовлення не знайдено або помилка оновлення'
       });
     }
 
-    order.status = status;
-    order.updatedAt = Date.now();
-    await order.save();
-
-    console.log(`✅ Статус замовлення ${order.orderNumber} оновлено на: ${status}`);
+    console.log(`✅ Статус замовлення ${order.order_number} оновлено на: ${status}`);
 
     res.json({
       success: true,
