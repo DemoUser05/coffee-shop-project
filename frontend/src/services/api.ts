@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 // Базовий URL нашого бекенду
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://coffee-shop-project.onrender.com/api'
+  : 'http://localhost:5000/api';
 
 // Створимо екземпляр axios з налаштуваннями
 const api = axios.create({

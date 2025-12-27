@@ -23,9 +23,16 @@ app.use((req, res, next) => {
 });
 
 // Підключення до MongoDB
-mongoose.connect('mongodb://localhost:27017/coffee_shop')
-.then(() => console.log('✅ MongoDB підключено'))
-.catch(err => console.error('❌ Помилка підключення до MongoDB:', err));
+const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/coffee_shop';
+console.log('🔍 Connecting to MongoDB...');
+
+mongoose.connect(mongoURI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('✅ MongoDB підключено до Atlas'))
+.catch(err => console.error('❌ Помилка підключення до MongoDB:', err.message));
+
 
 // Додаємо тестовий маршрут перед підключенням reviewRoutes
 app.get('/api/test', (req, res) => {
