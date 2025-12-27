@@ -6,7 +6,7 @@ const { protect } = require('../middleware/authMiddleware');
 // Базовий маршрут для перевірки
 router.get('/', (req, res) => {
   res.json({ 
-    message: 'Reviews API v1.0',
+    message: 'Reviews API v1.0 (Supabase)',
     endpoints: [
       'GET /all - Всі відгуки',
       'GET /dish/:dishId - Відгуки для страви',
