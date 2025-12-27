@@ -12,6 +12,7 @@ const reviewSchema = new mongoose.Schema({
   userEmail: {
     type: String,
     required: [true, 'Email користувача обов\'язковий'],
+    match: [/.+@.+\..+/, 'Будь ласка, введіть правильний email']
   },
   dishId: {
     type: String,
@@ -30,19 +31,45 @@ const reviewSchema = new mongoose.Schema({
   comment: {
     type: String,
     required: [true, 'Коментар обов\'язковий'],
-    minlength: [10, 'Коментар має містити мінімум 10 символів'],
-    maxlength: [500, 'Коментар не може перевищувати 500 символів'],
+    minlength: [3, 'Коментар має містити мінімум 3 символи'],
+    maxlength: [1000, 'Коментар не може перевищувати 1000 символів'],
   },
+  // Залишаємо date для зворотної сумісності
   date: {
     type: Date,
     default: Date.now,
   },
+  // Додаємо createdAt для сортування в контролері
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  // Додаємо updatedAt для оновлення
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  }
+}, {
+  // Автоматично оновлюємо updatedAt при змінах
+  timestamps: { 
+    createdAt: 'createdAt', 
+    updatedAt: 'updatedAt' 
+  }
+});
+
+// Middleware: оновлюємо date при створенні
+reviewSchema.pre('save', function(next) {
+  if (this.isNew) {
+    this.date = this.createdAt;
+  }
+  next();
 });
 
 // Індекси для швидкого пошуку
 reviewSchema.index({ dishId: 1 });
 reviewSchema.index({ userId: 1 });
-reviewSchema.index({ date: -1 });
+reviewSchema.index({ createdAt: -1 });
+reviewSchema.index({ date: -1 }); // для зворотної сумісності
 
 const Review = mongoose.model('Review', reviewSchema);
 module.exports = Review;
