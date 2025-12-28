@@ -94,6 +94,16 @@ const CheckoutPage: React.FC = () => {
     return digits;
   };
 
+  // Геттери для orderDetails
+  const getOrderAmount = (order: any) => 
+    order?.final_amount || order?.finalAmount || 0;
+
+  const getDeliveryFee = (order: any) => 
+    order?.delivery_fee || order?.deliveryFee || 0;
+
+  const getOrderNumberFromData = (order: any) => 
+    order?.order_number || order?.orderNumber || '';
+
   const handleQuantityChange = (itemId: number, change: number) => {
     const cartItem = (cart?.items || []).find(item => item.id === itemId);
     if (cartItem) {
@@ -276,9 +286,24 @@ const CheckoutPage: React.FC = () => {
       const response = await orderApi.create(orderData);
       
       if (response.success && response.data) {
-        const newOrderNumber = response.data.orderNumber || 'ORD' + Date.now().toString().slice(-6);
+        // Нормалізуємо дані для відображення
+        const normalizedData = {
+          ...response.data,
+          // Додаємо camelCase версії для зручності
+          finalAmount: response.data.final_amount || response.data.finalAmount,
+          deliveryFee: response.data.delivery_fee || response.data.deliveryFee,
+          orderNumber: response.data.order_number || response.data.orderNumber,
+          totalAmount: response.data.total_amount || response.data.totalAmount,
+          paymentMethod: response.data.payment_method || response.data.paymentMethod,
+          deliveryAddress: response.data.delivery_address || response.data.deliveryAddress,
+          customerName: response.data.customer_name || response.data.customerName,
+          customerPhone: response.data.customer_phone || response.data.customerPhone,
+          createdAt: response.data.created_at || response.data.createdAt,
+        };
+        
+        const newOrderNumber = getOrderNumberFromData(normalizedData) || 'ORD' + Date.now().toString().slice(-6);
         setOrderNumber(newOrderNumber);
-        setOrderDetails(response.data);
+        setOrderDetails(normalizedData);
         
         // Показуємо успіх
         setSubmitSuccess(true);
@@ -363,12 +388,14 @@ const CheckoutPage: React.FC = () => {
                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
                   <div className="flex justify-between mb-2">
                     <span className="text-gray-600">Сума замовлення:</span>
-                    <span className="font-semibold">{orderDetails.finalAmount} грн</span>
+                    <span className="font-semibold">
+                      {getOrderAmount(orderDetails)} грн
+                    </span>
                   </div>
                   <div className="flex justify-between mb-2">
                     <span className="text-gray-600">Доставка:</span>
-                    <span className={`font-semibold ${orderDetails.deliveryFee === 0 ? 'text-green-600' : ''}`}>
-                      {orderDetails.deliveryFee === 0 ? 'Безкоштовно' : `${orderDetails.deliveryFee} грн`}
+                    <span className={`font-semibold ${getDeliveryFee(orderDetails) === 0 ? 'text-green-600' : ''}`}>
+                      {getDeliveryFee(orderDetails) === 0 ? 'Безкоштовно' : `${getDeliveryFee(orderDetails)} грн`}
                     </span>
                   </div>
                   <div className="flex justify-between">
