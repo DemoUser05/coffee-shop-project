@@ -23,8 +23,24 @@ if (supabaseUrl && supabaseKey) {
 // ============================================
 // MIDDLEWARE
 // ============================================
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://coffee-cow-shop-project.netlify.app',
+  'https://coffee-cow-shop-project.netlify.app/'
+];
+
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://coffee-cow-shop-project.netlify.app'],
+  origin: function(origin, callback) {
+    // Дозволити запити без origin (наприклад, мобільні додатки)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'CORS політика не дозволяє доступ з цього джерела';
+      console.warn('❌ CORS помилка:', origin);
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   credentials: true
 }));
 app.use(express.json());
