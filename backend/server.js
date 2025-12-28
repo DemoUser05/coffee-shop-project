@@ -242,12 +242,14 @@ app.post('/api/bookings', async (req, res) => {
 });
 
 // 4. Отримати бронювання користувача
+// Отримати бронювання користувача (додайте логування)
 app.get('/api/bookings/user/:email', async (req, res) => {
   try {
     const { email } = req.params;
-    console.log(`📧 Бронювання для: ${email}`);
+    console.log(`📧 [SERVER] Пошук бронювань для: ${email}`);
     
     if (!supabase) {
+      console.log('❌ Supabase не підключено');
       return res.json({
         success: true,
         data: [],
@@ -255,14 +257,20 @@ app.get('/api/bookings/user/:email', async (req, res) => {
       });
     }
     
+    // Детальний пошук
+    console.log(`🔍 [SERVER] Виконую запит до Supabase...`);
+    
     const { data, error } = await supabase
       .from('bookings')
       .select('*')
       .eq('user_email', email)
-      .order('date', { ascending: false });
+      .order('created_at', { ascending: false });
     
     if (error) {
-      console.error('❌ Помилка Supabase:', error);
+      console.error('❌ [SERVER] Помилка Supabase:', error);
+      console.error('❌ [SERVER] Код помилки:', error.code);
+      console.error('❌ [SERVER] Повідомлення:', error.message);
+      
       return res.json({
         success: true,
         data: [],
@@ -270,13 +278,19 @@ app.get('/api/bookings/user/:email', async (req, res) => {
       });
     }
     
-    res.json({
-      success: true,
-      data: data || []
-    });
+    console.log(`✅ [SERVER] Знайдено бронювань: ${data?.length || 0}`);
+    if (data && data.length > 0) {
+      console.log('📋 [SERVER] Знайдені бронювання:');
+      data.forEach((booking, index) => {
+        console.log(`   ${index + 1}. ${booking.user_name} - ${booking.date} ${booking.time}`);
+      });
+    }
+    
+    // Повертаємо масив без додаткового обгортання
+    res.json(data || []);
     
   } catch (error) {
-    console.error('❌ Помилка сервера:', error);
+    console.error('❌ [SERVER] Критична помилка:', error);
     res.status(500).json({
       success: false,
       error: 'Помилка сервера'

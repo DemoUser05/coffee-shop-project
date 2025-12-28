@@ -28,18 +28,27 @@ const BookingsPage: React.FC = () => {
         return;
       }
 
+      console.log('🔍 Пошук бронювань для:', user.email);
       const response = await bookingApi.getUserBookings(user.email);
       
+      console.log('📊 Результат пошуку:', response);
+      
       if (response.success) {
-        setBookings(response.data || []);
-        if (!response.data || response.data.length === 0) {
+        const bookingsData = response.data || [];
+        console.log('✅ Знайдено бронювань:', bookingsData.length);
+        
+        // Використовуємо дані без конвертації (вони вже в правильному форматі)
+        setBookings(bookingsData);
+        
+        if (bookingsData.length === 0) {
           setError('У вас ще немає бронювань');
         }
       } else {
+        console.error('❌ Помилка від API:', response.error);
         setError(response.error || 'Помилка завантаження бронювань');
       }
     } catch (error: any) {
-      console.error('❌ Помилка:', error);
+      console.error('❌ Загальна помилка:', error);
       setError('Помилка завантаження бронювань. Спробуйте пізніше.');
     } finally {
       setLoading(false);
@@ -98,13 +107,12 @@ const BookingsPage: React.FC = () => {
         // Оновлюємо список бронювань
         setBookings(prev => 
           prev.map(booking => 
-            booking._id === bookingId 
+            booking.id === bookingId 
               ? { ...booking, status: 'cancelled' }
               : booking
           )
         );
         
-        // Показуємо повідомлення про успіх
         alert('✅ Бронювання успішно скасовано!');
       } else {
         alert(`❌ ${response.error || 'Помилка при скасуванні бронювання'}`);
@@ -222,7 +230,7 @@ const BookingsPage: React.FC = () => {
           <div className="bg-white rounded-xl shadow">
             <div className="divide-y">
               {bookings.map((booking) => (
-                <div key={booking._id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div key={booking.id} className="p-6 hover:bg-gray-50 transition-colors">
                   <div className="flex flex-col md:flex-row md:items-center justify-between">
                     {/* Інформація про бронювання */}
                     <div className="mb-4 md:mb-0 md:w-2/3">
@@ -231,9 +239,9 @@ const BookingsPage: React.FC = () => {
                         <span className={`ml-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
                           {getStatusText(booking.status)}
                         </span>
-                        {booking.createdAt && (
+                        {booking.created_at && (
                           <span className="ml-4 text-sm text-gray-500">
-                            Створено: {formatDate(booking.createdAt)}
+                            Створено: {formatDate(booking.created_at)}
                           </span>
                         )}
                       </div>
@@ -267,24 +275,23 @@ const BookingsPage: React.FC = () => {
                       <div className="mt-4">
                         <div className="flex items-center">
                           <Phone size={16} className="text-gray-400 mr-2" />
-                          <span className="text-gray-700">{booking.userPhone}</span>
+                          <span className="text-gray-700">{booking.user_phone}</span>
                         </div>
-                        <p className="text-gray-600 mt-1">{booking.userName}</p>
+                        <p className="text-gray-600 mt-1">{booking.user_name}</p>
                       </div>
                     </div>
                     
                     {/* Кнопки дій */}
                     <div className="flex flex-col space-y-2">
-                      {/* Можна скасовувати тільки бронювання зі статусами pending та confirmed */}
                       {(booking.status === 'pending' || booking.status === 'confirmed') && (
                         <button
-                          onClick={() => handleCancelBooking(booking._id!)}
-                          disabled={cancelling === booking._id}
+                          onClick={() => handleCancelBooking(booking.id!)}
+                          disabled={cancelling === booking.id}
                           className={`px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center ${
-                            cancelling === booking._id ? 'opacity-50 cursor-not-allowed' : ''
+                            cancelling === booking.id ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                         >
-                          {cancelling === booking._id ? (
+                          {cancelling === booking.id ? (
                             <>
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                               Скасування...
