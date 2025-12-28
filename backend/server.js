@@ -167,6 +167,230 @@ app.post('/api/reviews', async (req, res) => {
   }
 });
 
+// 3. Отримати відгуки користувача (новий маршрут)
+app.get('/api/reviews/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`👤 [SERVER] Запит відгуків користувача: ${userId}`);
+    
+    if (!supabase) {
+      return res.json({
+        success: true,
+        data: [],
+        message: 'Supabase не налаштовано'
+      });
+    }
+    
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('❌ Помилка Supabase при пошуку відгуків:', error);
+      return res.json({
+        success: true,
+        data: [],
+        error: error.message
+      });
+    }
+    
+    console.log(`✅ [SERVER] Знайдено відгуків: ${data?.length || 0}`);
+    
+    // Перетворюємо дані з Supabase в формат, який очікує frontend
+    const formattedReviews = (data || []).map(review => ({
+      _id: review.id,
+      id: review.id,
+      userId: review.user_id,
+      userName: review.user_name,
+      userEmail: review.user_email,
+      dishId: review.dish_id,
+      dishName: review.dish_name,
+      rating: review.rating,
+      comment: review.comment,
+      date: review.created_at,
+      createdAt: review.created_at
+    }));
+    
+    res.json({
+      success: true,
+      count: formattedReviews.length,
+      data: formattedReviews
+    });
+    
+  } catch (error) {
+    console.error('❌ [SERVER] Помилка сервера при отриманні відгуків:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Помилка сервера'
+    });
+  }
+});
+
+// 4. Отримати відгуки для конкретної страви (опціонально)
+app.get('/api/reviews/dish/:dishId', async (req, res) => {
+  try {
+    const { dishId } = req.params;
+    console.log(`🍽️ [SERVER] Запит відгуків для страви: ${dishId}`);
+    
+    if (!supabase) {
+      return res.json({
+        success: true,
+        data: [],
+        message: 'Supabase не налаштовано'
+      });
+    }
+    
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('dish_id', dishId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('❌ Помилка Supabase:', error);
+      return res.json({
+        success: true,
+        data: [],
+        error: error.message
+      });
+    }
+    
+    const formattedReviews = (data || []).map(review => ({
+      _id: review.id,
+      id: review.id,
+      userId: review.user_id,
+      userName: review.user_name,
+      userEmail: review.user_email,
+      dishId: review.dish_id,
+      dishName: review.dish_name,
+      rating: review.rating,
+      comment: review.comment,
+      date: review.created_at,
+      createdAt: review.created_at
+    }));
+    
+    res.json({
+      success: true,
+      count: formattedReviews.length,
+      data: formattedReviews
+    });
+    
+  } catch (error) {
+    console.error('❌ Помилка сервера:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Помилка сервера'
+    });
+  }
+});
+
+// 5. Оновити відгук
+app.put('/api/reviews/:reviewId', async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const { rating, comment } = req.body;
+    
+    console.log(`🔄 [SERVER] Оновлення відгуку: ${reviewId}`, req.body);
+    
+    if (!supabase) {
+      return res.json({
+        success: true,
+        message: 'Supabase не налаштовано, відгук не оновлено'
+      });
+    }
+    
+    const { data, error } = await supabase
+      .from('reviews')
+      .update({ rating, comment })
+      .eq('id', reviewId)
+      .select();
+    
+    if (error) {
+      console.error('❌ Помилка Supabase при оновленні:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Помилка бази даних'
+      });
+    }
+    
+    if (!data || data.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Відгук не знайдено'
+      });
+    }
+    
+    const updatedReview = data[0];
+    
+    res.json({
+      success: true,
+      data: {
+        _id: updatedReview.id,
+        id: updatedReview.id,
+        userId: updatedReview.user_id,
+        userName: updatedReview.user_name,
+        userEmail: updatedReview.user_email,
+        dishId: updatedReview.dish_id,
+        dishName: updatedReview.dish_name,
+        rating: updatedReview.rating,
+        comment: updatedReview.comment,
+        date: updatedReview.created_at,
+        createdAt: updatedReview.created_at
+      },
+      message: 'Відгук успішно оновлено!'
+    });
+    
+  } catch (error) {
+    console.error('❌ Помилка сервера:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Помилка сервера'
+    });
+  }
+});
+
+// 6. Видалити відгук
+app.delete('/api/reviews/:reviewId', async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    console.log(`🗑️ [SERVER] Видалення відгуку: ${reviewId}`);
+    
+    if (!supabase) {
+      return res.json({
+        success: true,
+        message: 'Supabase не налаштовано, відгук не видалено'
+      });
+    }
+    
+    const { error } = await supabase
+      .from('reviews')
+      .delete()
+      .eq('id', reviewId);
+    
+    if (error) {
+      console.error('❌ Помилка Supabase при видаленні:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Помилка бази даних'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Відгук успішно видалено!'
+    });
+    
+  } catch (error) {
+    console.error('❌ Помилка сервера:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Помилка сервера'
+    });
+  }
+});
+
 // ============================================
 // МАРШРУТИ ДЛЯ БРОНЮВАНЬ
 // ============================================

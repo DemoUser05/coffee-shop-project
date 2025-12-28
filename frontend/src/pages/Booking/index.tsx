@@ -292,7 +292,7 @@ const BookingPage: React.FC = () => {
               {/* Email */}
               <div>
                 <label className="block mb-1 sm:mb-2 font-medium text-gray-700 text-sm sm:text-base">
-                  Email (необов'язково)
+                  Email
                 </label>
                 <input 
                   type="email" 
