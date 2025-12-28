@@ -11,24 +11,39 @@ export interface CartItem {
 }
 
 export interface Order {
-  _id: string;
-  orderNumber: string;
+  // Supabase поля (які повертає сервер)
+  id: string;  // або _id для MongoDB
+  order_number: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email?: string;
+  customer_id?: string;
+  delivery_address: string;
+  delivery_time?: string;
+  delivery_notes?: string;
+  payment_method: 'cash' | 'card';
+  payment_status: 'pending' | 'paid' | 'failed';
   status: 'pending' | 'confirmed' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
-  totalAmount: number;
-  deliveryFee: number;
-  finalAmount: number;
-  customerName: string;
-  customerPhone: string;
-  customerEmail?: string;
-  customerId?: string;
-  deliveryAddress: string;
-  deliveryTime?: string;
-  deliveryNotes?: string;
-  paymentMethod: 'cash' | 'card';
-  paymentStatus: 'pending' | 'paid' | 'failed';
+  total_amount: number;
+  delivery_fee: number;
+  final_amount: number;
   items: CartItem[];
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at?: string;
+
+  // Для сумісності зі старим кодом (опціонально)
+  _id?: string;
+  orderNumber?: string;
+  customerName?: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  totalAmount?: number;
+  deliveryFee?: number;
+  finalAmount?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateOrderData {

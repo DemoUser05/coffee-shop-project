@@ -95,7 +95,8 @@ const ProfileOrdersPage: React.FC = () => {
     return `${amount} грн`;
   };
 
-  const getPaymentMethodText = (method: string) => {
+  const getPaymentMethodText = (method?: string) => {
+    if (!method) return 'Не вказано';
     return method === 'cash' ? 'Готівкою' : 'Карткою онлайн';
   };
 
@@ -189,7 +190,7 @@ const ProfileOrdersPage: React.FC = () => {
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Останнє замовлення</p>
                     <p className="font-medium">
-                      {orders.length > 0 ? `№${orders[0]?.orderNumber}` : 'Немає'}
+                      {orders.length > 0 ? `№${orders[0]?.order_number || orders[0]?.orderNumber}` : 'Немає'}
                     </p>
                   </div>
                 </div>
@@ -228,13 +229,13 @@ const ProfileOrdersPage: React.FC = () => {
             ) : (
               <div className="space-y-6">
                 {orders.map((order) => (
-                  <div key={order._id} className="bg-white rounded-xl shadow-md overflow-hidden">
+                  <div key={order.id || order._id} className="bg-white rounded-xl shadow-md overflow-hidden">
                     <div className="p-6">
                       <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
                         <div>
                           <div className="flex items-center mb-2">
                             <span className="text-xl font-bold text-coffee-dark mr-3">
-                              №{order.orderNumber}
+                              №{order.order_number || order.orderNumber}
                             </span>
                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
                               {getStatusIcon(order.status)}
@@ -243,13 +244,13 @@ const ProfileOrdersPage: React.FC = () => {
                           </div>
                           <p className="text-gray-600">
                             <Clock size={14} className="inline mr-2" />
-                            {formatDate(order.createdAt)}
+                            {formatDate(order.created_at || order.createdAt || new Date().toISOString())}
                           </p>
                         </div>
                         
                         <div className="mt-3 md:mt-0">
                           <p className="text-2xl font-bold text-coffee-dark">
-                            {formatCurrency(order.finalAmount)}
+                            {formatCurrency(order.final_amount || order.finalAmount || 0)}
                           </p>
                           <p className="text-gray-600 text-sm mt-1">
                             {order.items.length} товарів
@@ -263,7 +264,7 @@ const ProfileOrdersPage: React.FC = () => {
                             <User size={16} className="text-gray-500 mr-2" />
                             <span className="font-medium">Замовник</span>
                           </div>
-                          <p className="text-gray-700">{order.customerName}</p>
+                          <p className="text-gray-700">{order.customer_name || order.customerName || 'Не вказано'}</p>
                         </div>
                         
                         <div className="bg-gray-50 p-3 rounded-lg">
@@ -271,7 +272,7 @@ const ProfileOrdersPage: React.FC = () => {
                             <Phone size={16} className="text-gray-500 mr-2" />
                             <span className="font-medium">Телефон</span>
                           </div>
-                          <p className="text-gray-700">{order.customerPhone}</p>
+                          <p className="text-gray-700">{order.customer_phone || order.customerPhone || 'Не вказано'}</p>
                         </div>
                         
                         <div className="bg-gray-50 p-3 rounded-lg">
@@ -279,7 +280,7 @@ const ProfileOrdersPage: React.FC = () => {
                             <CreditCard size={16} className="text-gray-500 mr-2" />
                             <span className="font-medium">Оплата</span>
                           </div>
-                          <p className="text-gray-700">{getPaymentMethodText(order.paymentMethod)}</p>
+                          <p className="text-gray-700">{getPaymentMethodText(order.payment_method || order.paymentMethod)}</p>
                         </div>
                       </div>
 
@@ -288,7 +289,7 @@ const ProfileOrdersPage: React.FC = () => {
                           <MapPin size={16} className="text-gray-500 mr-2" />
                           <span className="font-medium">Адреса доставки</span>
                         </div>
-                        <p className="text-gray-700">{order.deliveryAddress}</p>
+                        <p className="text-gray-700">{order.delivery_address || order.deliveryAddress || 'Адреса не вказана'}</p>
                       </div>
 
                       <div>
@@ -319,12 +320,12 @@ const ProfileOrdersPage: React.FC = () => {
                         <div>
                           <p className="text-sm text-gray-500">Доставка</p>
                           <p className="font-medium">
-                            {order.deliveryFee === 0 ? 'Безкоштовно' : `${order.deliveryFee} грн`}
+                            {(order.delivery_fee || order.deliveryFee || 0) === 0 ? 'Безкоштовно' : `${order.delivery_fee || order.deliveryFee} грн`}
                           </p>
                         </div>
                         
                         <button
-                          onClick={() => navigate(`/profile/orders/${order._id}`)}
+                          onClick={() => navigate(`/profile/orders/${order.id || order._id}`)}
                           className="px-4 py-2 border border-coffee-dark text-coffee-dark rounded-lg hover:bg-coffee-light transition-colors"
                         >
                           Детальніше

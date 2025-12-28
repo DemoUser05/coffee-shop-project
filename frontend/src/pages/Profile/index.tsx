@@ -133,6 +133,11 @@ const ProfilePage: React.FC = () => {
     return `${amount} грн`;
   };
 
+  const getPaymentMethodText = (method?: string) => {
+    if (!method) return 'Не вказано';
+    return method === 'cash' ? 'Готівка' : 'Картка';
+  };
+
   if (!isAuthenticated || !user) {
     return (
       <div className="min-h-screen p-4 sm:p-6 md:p-8">
@@ -288,7 +293,7 @@ const ProfilePage: React.FC = () => {
                   ) : (
                     <div className="space-y-3 sm:space-y-4">
                       {recentBookings.map((booking) => (
-                        <div key={booking._id} className="border-b pb-3 sm:pb-4 last:border-0">
+                        <div key={booking.id || booking._id} className="border-b pb-3 sm:pb-4 last:border-0">
                           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center mb-1">
@@ -303,7 +308,7 @@ const ProfilePage: React.FC = () => {
                                   <span>{booking.guests} гостей</span>
                                 </div>
                                 <span className="hidden sm:inline">•</span>
-                                <span className="truncate">{booking.userPhone}</span>
+                                <span className="truncate">{booking.user_phone || booking.userPhone || 'Телефон не вказано'}</span>
                               </div>
                             </div>
                             
@@ -360,30 +365,42 @@ const ProfilePage: React.FC = () => {
                   ) : (
                     <div className="space-y-3 sm:space-y-4">
                       {recentOrders.map((order) => (
-                        <div key={order._id} className="border-b pb-3 sm:pb-4 last:border-0">
+                        <div key={order.id || order._id} className="border-b pb-3 sm:pb-4 last:border-0">
                           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-wrap items-center mb-1 gap-1 sm:gap-2">
                                 <span className="font-medium text-coffee-dark mr-1 sm:mr-2 text-sm sm:text-base">
-                                  №{order.orderNumber}
+                                  №{order.order_number || order.orderNumber}
                                 </span>
                                 <span className="text-xs sm:text-sm text-gray-500">
-                                  {formatDate(order.createdAt)}
+                                  {formatDate(order.created_at || order.createdAt || new Date().toISOString())}
                                 </span>
                               </div>
                               <div className="flex flex-wrap items-center text-xs sm:text-sm text-gray-600 gap-1 sm:gap-2 mb-1">
                                 <div className="flex items-center">
                                   <CreditCard size={12} className="mr-1 flex-shrink-0" />
-                                  <span className="capitalize">{order.paymentMethod === 'cash' ? 'Готівка' : 'Картка'}</span>
+                                  <span className="capitalize">
+                                    {getPaymentMethodText(order.payment_method || order.paymentMethod)}
+                                  </span>
                                 </div>
                                 <span className="hidden sm:inline">•</span>
                                 <div className="flex items-center truncate">
                                   <Truck size={12} className="mr-1 flex-shrink-0" />
-                                  <span className="truncate">{order.deliveryAddress.split(',')[0]}</span>
+                                  <span className="truncate">
+                                    {order.delivery_address ? 
+                                      (order.delivery_address.includes(',') ? 
+                                        order.delivery_address.split(',')[0] : 
+                                        order.delivery_address) :
+                                      order.deliveryAddress ? 
+                                        (order.deliveryAddress.includes(',') ? 
+                                          order.deliveryAddress.split(',')[0] : 
+                                          order.deliveryAddress) :
+                                      'Адреса не вказана'}
+                                  </span>
                                 </div>
                               </div>
                               <div className="flex items-center text-sm sm:text-base font-medium">
-                                {formatCurrency(order.finalAmount)}
+                                {formatCurrency(order.final_amount || order.finalAmount || 0)}
                               </div>
                             </div>
                             
@@ -393,7 +410,7 @@ const ProfilePage: React.FC = () => {
                                 {getOrderStatusText(order.status)}
                               </div>
                               <Link 
-                                to={`/profile/orders/${order._id}`}
+                                to={`/profile/orders/${order.id || order._id}`}
                                 className="text-xs sm:text-sm text-coffee-dark hover:text-coffee whitespace-nowrap"
                               >
                                 Детальніше
