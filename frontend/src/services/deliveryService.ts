@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api/delivery';
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://coffee-shop-project.onrender.com/api'  // Render URL
+  : 'http://localhost:5000/api';  // Локальний URL
+
+const API_URL = `${API_BASE_URL}/delivery`;
 
 export interface DeliveryOrder {
   _id?: string;

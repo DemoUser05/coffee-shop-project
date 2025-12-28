@@ -3,7 +3,11 @@ import axios from 'axios';
 import { AppUser } from '../store/slices/authSlice';
 import { getAuth } from 'firebase/auth';
 
-const API_URL = 'http://localhost:5000/api/reviews';
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://coffee-shop-project.onrender.com/api'  // Render URL
+  : 'http://localhost:5000/api';  // Локальний URL
+
+const API_URL = `${API_BASE_URL}/reviews`;
 
 // Типи
 export interface Review {
