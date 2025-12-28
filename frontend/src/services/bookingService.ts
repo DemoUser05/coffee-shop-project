@@ -8,6 +8,7 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
 const BOOKINGS_URL = `${API_BASE_URL}/bookings`;
 
 export interface Booking {
+  _id?: string;
   id: string;  // ЗМІНА: з _id на id (Supabase використовує id)
   user_name: string;  // ЗМІНА: з userName на user_name
   user_phone: string; // ЗМІНА: з userPhone на user_phone
