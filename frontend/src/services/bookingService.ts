@@ -12,6 +12,7 @@ export interface Booking {
   id: string;  // ЗМІНА: з _id на id (Supabase використовує id)
   user_name: string;  // ЗМІНА: з userName на user_name
   user_phone: string; // ЗМІНА: з userPhone на user_phone
+  userPhone?: string; // Додайте для сумісності
   user_email?: string;
   date: string;
   time: string;
